@@ -1,4 +1,4 @@
-import { LogOut, User as UserIcon, Mail, ShoppingBag, Shield, Clock, Award } from 'lucide-react';
+import { LogOut, User as UserIcon, Mail, ShoppingBag, Shield, Clock, Award, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { BottomNav } from '@/components/BottomNav';
@@ -20,11 +20,21 @@ export default function Profile() {
       <header className="bg-card border-b sticky top-0 z-40 backdrop-blur-lg bg-card/95">
         <div className="max-w-2xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <img src="/images/logo.png" alt="RushCart" className="h-8 w-auto" />
-              <div>
-                <h1 className="font-bold text-foreground text-base">Profile</h1>
-                <p className="text-xs text-muted-foreground truncate max-w-[180px]">{user?.email}</p>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(-1)}
+                className="h-9 w-9 rounded-lg hover:bg-primary/10"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <div className="flex items-center gap-2">
+                <img src="/images/logo.png" alt="RushCart" className="h-8 w-auto" />
+                <div>
+                  <h1 className="font-bold text-foreground text-base">Profile</h1>
+                  <p className="text-xs text-muted-foreground truncate max-w-[180px]">{user?.email}</p>
+                </div>
               </div>
             </div>
           </div>

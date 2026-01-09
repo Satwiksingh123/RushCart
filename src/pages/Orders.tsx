@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Receipt, ChevronRight, Package } from 'lucide-react';
+import { Receipt, ChevronRight, Package, ArrowLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { BottomNav } from '@/components/BottomNav';
 import { useAuth } from '@/hooks/useAuth';
@@ -59,11 +60,21 @@ export default function Orders() {
       <header className="bg-card border-b sticky top-0 z-40 backdrop-blur-lg bg-card/95">
         <div className="max-w-2xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <img src="/images/logo.png" alt="RushCart" className="h-8 w-auto" />
-              <div>
-                <h1 className="font-bold text-foreground text-base">Your Orders</h1>
-                <p className="text-xs text-muted-foreground">{orders.length > 0 ? `${orders.length} order${orders.length > 1 ? 's' : ''}` : 'No orders'}</p>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(-1)}
+                className="h-9 w-9 rounded-lg hover:bg-primary/10"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <div className="flex items-center gap-2">
+                <img src="/images/logo.png" alt="RushCart" className="h-8 w-auto" />
+                <div>
+                  <h1 className="font-bold text-foreground text-base">Your Orders</h1>
+                  <p className="text-xs text-muted-foreground">{orders.length > 0 ? `${orders.length} order${orders.length > 1 ? 's' : ''}` : 'No orders'}</p>
+                </div>
               </div>
             </div>
           </div>

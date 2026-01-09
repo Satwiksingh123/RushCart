@@ -50,17 +50,17 @@ export default function Footer() {
               Skip the queues, embrace the future.
             </p>
             <div className="space-y-3">
-              <a href="mailto:hello@rushcart.com" className="flex items-center gap-3 text-muted-foreground hover:text-foreground transition-colors">
+              <a href="mailto:satwiksingh34473@gmail.com" className="flex items-center gap-3 text-muted-foreground hover:text-foreground transition-colors">
                 <Mail className="w-5 h-5" />
-                hello@rushcart.com
+                satwiksingh34473@gmail.com
               </a>
-              <a href="tel:+911234567890" className="flex items-center gap-3 text-muted-foreground hover:text-foreground transition-colors">
+              <a href="tel:+919027052701" className="flex items-center gap-3 text-muted-foreground hover:text-foreground transition-colors">
                 <Phone className="w-5 h-5" />
-                +91 123 456 7890
+                +91 9027052701
               </a>
               <div className="flex items-center gap-3 text-muted-foreground">
                 <MapPin className="w-5 h-5" />
-                Bangalore, India
+                Delhi, India
               </div>
             </div>
           </div>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Download, CheckCircle2, ShieldCheck, Store } from 'lucide-react';
+import { Download, CheckCircle2, ShieldCheck, Store, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
@@ -120,14 +120,24 @@ export default function Bill() {
       <header className="bg-success/10 border-b border-success/20 sticky top-0 z-40 backdrop-blur-lg">
         <div className="max-w-2xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <img src="/images/logo.png" alt="RushCart" className="h-8 w-auto" />
-              <div>
-                <h1 className="font-bold text-success text-base flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4" />
-                  Payment Success
-                </h1>
-                <p className="text-xs text-muted-foreground">Order #{order.id.slice(0, 8).toUpperCase()}</p>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/orders')}
+                className="h-9 w-9 rounded-lg hover:bg-success/10"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <div className="flex items-center gap-2">
+                <img src="/images/logo.png" alt="RushCart" className="h-8 w-auto" />
+                <div>
+                  <h1 className="font-bold text-success text-base flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4" />
+                    Payment Success
+                  </h1>
+                  <p className="text-xs text-muted-foreground">Order #{order.id.slice(0, 8).toUpperCase()}</p>
+                </div>
               </div>
             </div>
             <div className="text-right">
