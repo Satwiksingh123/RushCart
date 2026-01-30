@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Camera, Package, ShoppingBag, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { BarcodeScanner } from '@/components/BarcodeScanner';
 import { ImageBarcodeScanner } from '@/components/ImageBarcodeScanner';
 import { ManualBarcodeInput } from '@/components/ManualBarcodeInput';
@@ -15,6 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 export default function Scan() {
   const navigate = useNavigate();
   const [showCamera, setShowCamera] = useState(false);
+  const [showManualInput, setShowManualInput] = useState(false);
   const [lastScannedProduct, setLastScannedProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
   const { addToCart, items } = useCart();
@@ -103,25 +105,25 @@ export default function Scan() {
         </div>
       </header>
 
-      <div className="p-3 space-y-4 max-w-2xl mx-auto">
+      <div className="p-4 space-y-4 max-w-2xl mx-auto">
         {/* Quick Stats Banner */}
         {items.length > 0 && (
-          <Card className="p-4 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 border-primary/20">
+          <Card className="p-3 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 border-primary/20">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-                  <ShoppingBag className="w-5 h-5 text-primary" />
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center">
+                  <ShoppingBag className="w-4 h-4 text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Items in Cart</p>
-                  <p className="font-bold text-lg text-foreground">{items.length}</p>
+                  <p className="text-xs text-muted-foreground">Items in Cart</p>
+                  <p className="font-bold text-base text-foreground">{items.length}</p>
                 </div>
               </div>
               <Button 
                 onClick={() => window.location.href = '/cart'}
                 variant="outline" 
                 size="sm"
-                className="border-primary/30 hover:bg-primary/10"
+                className="border-primary/30 hover:bg-primary/10 h-8 text-xs"
               >
                 View Cart
               </Button>
@@ -135,10 +137,10 @@ export default function Scan() {
           <Button
             onClick={() => setShowCamera(true)}
             size="lg"
-            className="w-full h-28 gradient-primary text-lg font-semibold shadow-fab scan-pulse rounded-2xl hover:scale-[1.02] transition-transform"
+            className="w-full h-24 gradient-primary text-base font-semibold shadow-fab scan-pulse rounded-2xl hover:scale-[1.02] transition-transform"
           >
             <div className="flex flex-col items-center gap-2">
-              <Camera className="w-10 h-10" />
+              <Camera className="w-8 h-8" />
               <span>Scan with Camera</span>
             </div>
           </Button>
@@ -147,13 +149,18 @@ export default function Scan() {
         {/* Alternative Scan Methods */}
         <div className="grid grid-cols-2 gap-3">
           {/* Image Upload */}
-          <div className="relative">
+          <Card 
+            className="p-4 shadow-card hover:shadow-lg transition-shadow border-2 hover:border-primary/30 flex flex-col items-center justify-center min-h-[120px] cursor-pointer active:scale-95"
+          >
             <ImageBarcodeScanner onDetected={lookupProduct} />
-          </div>
+          </Card>
 
           {/* Manual Input Card */}
-          <Card className="p-4 shadow-card hover:shadow-lg transition-shadow border-2 hover:border-primary/30">
-            <ManualBarcodeInput onSubmit={lookupProduct} loading={loading} />
+          <Card 
+            onClick={() => setShowManualInput(true)}
+            className="p-4 shadow-card hover:shadow-lg transition-shadow border-2 hover:border-primary/30 flex flex-col items-center justify-center min-h-[120px] cursor-pointer active:scale-95"
+          >
+            <ManualBarcodeInput onSubmit={lookupProduct} loading={loading} compact />
           </Card>
         </div>
 
@@ -162,13 +169,13 @@ export default function Scan() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
                   <Package className="w-4 h-4 text-primary" />
                 </div>
-                <span className="text-sm font-semibold text-foreground">Last Scanned Product</span>
+                <span className="text-sm font-semibold text-foreground">Last Scanned</span>
               </div>
               {cartItem && (
-                <span className="text-xs bg-success/10 text-success px-3 py-1 rounded-full font-medium">
+                <span className="text-xs bg-success/10 text-success px-2 py-1 rounded-full font-medium">
                   In Cart
                 </span>
               )}
@@ -184,13 +191,13 @@ export default function Scan() {
 
         {/* Empty state - Enhanced */}
         {!lastScannedProduct && (
-          <Card className="p-10 text-center bg-gradient-to-br from-secondary/50 to-secondary/30 border-dashed border-2">
-            <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-              <Package className="w-10 h-10 text-primary" />
+          <Card className="p-8 text-center bg-gradient-to-br from-secondary/50 to-secondary/30 border-dashed border-2">
+            <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+              <Package className="w-8 h-8 text-primary" />
             </div>
-            <h3 className="font-bold text-foreground text-lg mb-2">Ready to Scan</h3>
-            <p className="text-muted-foreground text-sm max-w-xs mx-auto leading-relaxed">
-              Start by scanning a barcode with your camera, uploading an image, or entering it manually
+            <h3 className="font-bold text-foreground text-base mb-2">Ready to Scan</h3>
+            <p className="text-muted-foreground text-xs max-w-xs mx-auto leading-relaxed">
+              Scan barcode with camera, upload image, or enter manually
             </p>
           </Card>
         )}
@@ -203,6 +210,22 @@ export default function Scan() {
           onClose={() => setShowCamera(false)}
         />
       )}
+
+      {/* Manual Input Dialog */}
+      <Dialog open={showManualInput} onOpenChange={setShowManualInput}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Manual Barcode Entry</DialogTitle>
+          </DialogHeader>
+          <ManualBarcodeInput 
+            onSubmit={(barcode) => {
+              lookupProduct(barcode);
+              setShowManualInput(false);
+            }} 
+            loading={loading} 
+          />
+        </DialogContent>
+      </Dialog>
 
       <BottomNav />
     </div>

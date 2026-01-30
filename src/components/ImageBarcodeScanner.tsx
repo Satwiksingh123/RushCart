@@ -128,33 +128,32 @@ export function ImageBarcodeScanner({ onDetected }: ImageBarcodeScannerProps) {
   );
 
   return (
-    <div className="relative">
+    <div className="relative w-full h-full">
       <input
         type="file"
         accept="image/*"
         onChange={handleFileChange}
-        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
         disabled={isProcessing}
       />
-      <Button
-        variant="outline"
-        size="lg"
-        className="w-full h-24 flex flex-col gap-2 border-dashed border-2 hover:border-primary hover:bg-primary/5 transition-all"
-        disabled={isProcessing}
-      >
+      <div className="w-full h-full flex flex-col items-center justify-center gap-3 pointer-events-none">
         {isProcessing ? (
           <>
-            <Loader2 className="w-6 h-6 text-primary animate-spin" />
-            <span className="text-sm font-medium">Processing image...</span>
+            <Loader2 className="w-5 h-5 text-primary animate-spin" />
+            <span className="text-xs font-medium">Processing...</span>
           </>
         ) : (
           <>
-            <ImagePlus className="w-6 h-6 text-muted-foreground" />
-            <span className="text-sm font-medium">Upload Barcode Image</span>
-            <span className="text-xs text-muted-foreground">PNG, JPG up to 10MB</span>
+            <div className="p-2 rounded-full bg-primary/10">
+              <ImagePlus className="w-5 h-5 text-primary" />
+            </div>
+            <div className="text-center">
+              <p className="font-medium text-sm mb-1">Upload Barcode</p>
+              <p className="text-xs text-muted-foreground">PNG, JPG</p>
+            </div>
           </>
         )}
-      </Button>
+      </div>
     </div>
   );
 }
