@@ -2,6 +2,7 @@ import { Minus, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { CartItem } from '@/hooks/useCart';
+import ReportProductDialog from '@/components/ReportProductDialog';
 
 interface CartItemCardProps {
   item: CartItem;
@@ -33,7 +34,10 @@ export function CartItemCard({ item, onUpdateQuantity, onRemove }: CartItemCardP
         {product.weight && (
           <p className="text-xs text-muted-foreground">{product.weight}</p>
         )}
-        <p className="text-primary font-bold mt-1 text-sm">₹{product.price}</p>
+        <div className="flex items-center gap-2 mt-1">
+          <p className="text-primary font-bold text-sm">₹{product.price}</p>
+          <ReportProductDialog productId={product.id} productName={product.name} />
+        </div>
       </div>
       <div className="flex flex-col items-end justify-between gap-2">
         <Button

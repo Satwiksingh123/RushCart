@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { ScanLine, ShoppingCart, Receipt, User } from 'lucide-react';
+import { ScanLine, ShoppingCart, Receipt, AlertCircle, User } from 'lucide-react';
 import { useCart } from '@/hooks/useCart';
 import { cn } from '@/lib/utils';
 
@@ -7,6 +7,7 @@ const navItems = [
   { path: '/scan', icon: ScanLine, label: 'Scan' },
   { path: '/cart', icon: ShoppingCart, label: 'Cart', showBadge: true },
   { path: '/orders', icon: Receipt, label: 'Orders' },
+  { path: '/points', icon: AlertCircle, label: 'Report' },
   { path: '/profile', icon: User, label: 'Profile' },
 ];
 

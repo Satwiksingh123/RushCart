@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ShoppingBag, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { ShoppingBag, Mail, Lock, Eye, EyeOff, Chrome } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -13,9 +13,17 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const { signIn, signUp, signInWithGoogle, user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (user) {
+      navigate('/scan', { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +57,29 @@ export default function Auth() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    try {
+      const { error } = await signInWithGoogle();
+      if (error) {
+        toast({
+          title: 'Error',
+          description: error.message,
+          variant: 'destructive',
+        });
+        setGoogleLoading(false);
+      }
+      // Don't set loading to false here as the page will redirect
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: 'Failed to sign in with Google',
+        variant: 'destructive',
+      });
+      setGoogleLoading(false);
     }
   };
 
@@ -112,12 +143,34 @@ export default function Auth() {
 
           <Button
             type="submit"
-            disabled={loading}
+            disabled={loading || googleLoading}
             className="w-full h-12 gradient-primary font-semibold text-lg"
           >
             {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Create Account'}
           </Button>
         </form>
+
+        {/* Divider */}
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-border"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-4 bg-card text-muted-foreground">Or continue with</span>
+          </div>
+        </div>
+
+        {/* Google Sign In */}
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleGoogleSignIn}
+          disabled={loading || googleLoading}
+          className="w-full h-12 font-semibold border-2 hover:bg-primary/5 hover:border-primary/30"
+        >
+          <Chrome className="w-5 h-5 mr-2" />
+          {googleLoading ? 'Connecting...' : 'Sign in with Google'}
+        </Button>
 
         <div className="mt-6 text-center">
           <button

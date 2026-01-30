@@ -14,6 +14,7 @@ import Checkout from "./pages/Checkout";
 import Bill from "./pages/Bill";
 import Orders from "./pages/Orders";
 import Profile from "./pages/Profile";
+import Points from "./pages/Points";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -87,6 +88,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Profile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/points"
+        element={
+          <ProtectedRoute>
+            <Points />
           </ProtectedRoute>
         }
       />

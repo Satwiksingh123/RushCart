@@ -148,6 +148,117 @@ export type Database = {
         }
         Relationships: []
       }
+      point_transactions: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          points: number
+          reference_id: string | null
+          transaction_type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          points: number
+          reference_id?: string | null
+          transaction_type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          points?: number
+          reference_id?: string | null
+          transaction_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      product_reports: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          description: string | null
+          expiry_date_image_url: string | null
+          id: string
+          issue_type: Database["public"]["Enums"]["issue_type"]
+          points_awarded: number
+          product_id: string
+          proof_image_url: string | null
+          status: Database["public"]["Enums"]["report_status"]
+          user_id: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          description?: string | null
+          expiry_date_image_url?: string | null
+          id?: string
+          issue_type: Database["public"]["Enums"]["issue_type"]
+          points_awarded?: number
+          product_id: string
+          proof_image_url?: string | null
+          status?: Database["public"]["Enums"]["report_status"]
+          user_id: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          description?: string | null
+          expiry_date_image_url?: string | null
+          id?: string
+          issue_type?: Database["public"]["Enums"]["issue_type"]
+          points_awarded?: number
+          product_id?: string
+          proof_image_url?: string | null
+          status?: Database["public"]["Enums"]["report_status"]
+          user_id?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_reports_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_points: {
+        Row: {
+          available_points: number | null
+          created_at: string
+          points_used: number
+          total_points: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          points_used?: number
+          total_points?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          points_used?: number
+          total_points?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -156,7 +267,8 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      issue_type: "expired" | "damaged" | "mrp_mismatch" | "fake_offer" | "other"
+      report_status: "pending" | "verified" | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
