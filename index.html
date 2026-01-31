@@ -7,6 +7,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0f172a" />
     <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Aggressive cache prevention -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    
     <title>RushCart - Smart Shopping Platform</title>
     <meta name="description" content="Skip the queues, shop smarter with RushCart" />
     <meta name="author" content="RushCart" />
@@ -14,14 +20,42 @@
     <meta property="og:title" content="RushCart - Smart Shopping Platform" />
     <meta property="og:description" content="Skip the queues, shop smarter with RushCart" />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://rush-cart.vercel.app" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@Lovable" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta name="twitter:title" content="RushCart - Smart Shopping Platform" />
+    <meta name="twitter:description" content="Skip the queues, shop smarter with RushCart" />
   </head>
 
   <body>
     <div id="root"></div>
+    
+    <!-- Clear all storage on load to remove cached lovable redirects -->
+    <script>
+      // Force clear all cached data including lovable domain
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for(let registration of registrations) {
+            registration.unregister();
+          }
+        });
+      }
+      
+      // Clear all caches
+      if ('caches' in window) {
+        caches.keys().then(function(names) {
+          for (let name of names) caches.delete(name);
+        });
+      }
+      
+      // Clear storage for lovable domain if exists
+      try {
+        if (window.location.hostname.includes('lovable')) {
+          window.location.replace('https://rush-cart.vercel.app');
+        }
+      } catch(e) {}
+    </script>
+    
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
