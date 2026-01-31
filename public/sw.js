@@ -1,5 +1,6 @@
 // RushCart Service Worker - Simple cache-first strategy
-const CACHE_NAME = 'rushcart-v1';
+// Update version to force cache refresh
+const CACHE_NAME = 'rushcart-v2-' + Date.now();
 const STATIC_ASSETS = [
   '/'
 ];
@@ -13,15 +14,14 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate event - clean up old caches
+// Activate event - clean up old caches and force clear all
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
       .then((cacheNames) => {
+        // Delete ALL old caches including lovable domain caches
         return Promise.all(
-          cacheNames
-            .filter((name) => name !== CACHE_NAME)
-            .map((name) => caches.delete(name))
+          cacheNames.map((name) => caches.delete(name))
         );
       })
       .then(() => self.clients.claim())
