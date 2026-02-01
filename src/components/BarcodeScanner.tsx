@@ -9,12 +9,12 @@ interface BarcodeScannerProps {
   onClose: () => void;
 }
 
-// Configuration for stable scanning
+// Configuration for stable scanning - balanced for accuracy + speed
 const SCAN_CONFIG = {
-  requiredStableFrames: 4,      // Need 4 consecutive same detections
-  minConfidence: 0.85,          // Minimum confidence threshold (0-1)
+  requiredStableFrames: 2,      // Need 2 consecutive same detections (reduced from 4)
+  minConfidence: 0.5,           // Minimum confidence threshold (reduced from 0.85)
   scanCooldown: 500,            // Cooldown after successful scan (ms)
-  minBarcodeLength: 8,          // Minimum barcode length to accept
+  minBarcodeLength: 6,          // Minimum barcode length to accept (reduced from 8)
 };
 
 export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
@@ -64,24 +64,14 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
         return;
       }
       
-      // Validation 2: Check confidence level
-      if (confidence < SCAN_CONFIG.minConfidence) {
-        console.log('Rejected: Low confidence', confidence);
-        return;
-      }
+      // Validation 2: Check confidence level (skip this check - Quagga confidence is unreliable)
+      // if (confidence < SCAN_CONFIG.minConfidence) {
+      //   console.log('Rejected: Low confidence', confidence);
+      //   return;
+      // }
       
-      // Validation 3: Check bounding box size (barcode should be well visible)
-      if (result.box) {
-        const boxWidth = Math.abs(result.box[1][0] - result.box[0][0]);
-        const boxHeight = Math.abs(result.box[2][1] - result.box[0][1]);
-        const minWidth = scanBoxRef.current.width * 0.5;
-        const minHeight = scanBoxRef.current.height * 0.3;
-        
-        if (boxWidth < minWidth || boxHeight < minHeight) {
-          console.log('Rejected: Barcode too small in frame', { boxWidth, boxHeight, minWidth, minHeight });
-          return;
-        }
-      }
+      // Validation 3: Skip bounding box check - was too strict
+      // Just do frame consistency check
       
       // Validation 4: Frame consistency check (most important!)
       if (code === lastCodeRef.current) {
@@ -119,13 +109,7 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
             width: { ideal: 1280 },
             height: { ideal: 720 },
           },
-          area: {
-            // Scan only center region (ROI) for better accuracy
-            top: "25%",
-            right: "10%",
-            left: "10%",
-            bottom: "25%"
-          },
+          // Removed ROI area restriction - scan full frame for better detection
         },
         decoder: {
           readers: ['ean_reader', 'ean_8_reader', 'code_128_reader', 'upc_reader', 'upc_e_reader'],
@@ -134,9 +118,9 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
         locate: true,
         locator: {
           patchSize: 'medium',
-          halfSample: false, // Better accuracy with full sample
+          halfSample: true, // Faster processing
         },
-        frequency: 10, // Scan 10 times per second (more stable)
+        frequency: 15, // Scan 15 times per second for faster detection
       },
       (err) => {
         if (err) {
