@@ -9,13 +9,35 @@ interface BarcodeScannerProps {
   onClose: () => void;
 }
 
-// Configuration for stable scanning - optimized for faster detection
+// Configuration for stable scanning - prevents false positives
 const SCAN_CONFIG = {
-  requiredStableFrames: 1,      // Single detection is enough (zyada tez detection)
-  minConfidence: 0.3,           // Lower threshold for better detection (especially in low light)
+  requiredStableFrames: 3,      // Need 3 consecutive detections to prevent false positives
+  minConfidence: 0.5,           // Increased confidence threshold
   scanCooldown: 500,            // Cooldown after successful scan (ms)
-  minBarcodeLength: 5,          // Accept smaller barcodes too
+  minBarcodeLength: 8,          // Standard barcode minimum length (EAN-8)
+  maxBarcodeLength: 18,         // Maximum barcode length
 };
+
+// Valid barcode format patterns
+const BARCODE_PATTERNS = {
+  EAN13: /^\d{13}$/,           // EAN-13 (most common)
+  EAN8: /^\d{8}$/,             // EAN-8
+  UPCA: /^\d{12}$/,            // UPC-A
+  UPCE: /^\d{6,8}$/,           // UPC-E
+  CODE128: /^[0-9A-Z\-]{8,18}$/i, // Code 128
+  CODE39: /^[0-9A-Z\-]{8,18}$/i,  // Code 39
+};
+
+// Validate if barcode matches standard formats
+function isValidBarcodeFormat(code: string): boolean {
+  // Check length first
+  if (code.length < SCAN_CONFIG.minBarcodeLength || code.length > SCAN_CONFIG.maxBarcodeLength) {
+    return false;
+  }
+  
+  // Check against known patterns
+  return Object.values(BARCODE_PATTERNS).some(pattern => pattern.test(code));
+}
 
 export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
   const scannerRef = useRef<HTMLDivElement>(null);
@@ -82,34 +104,61 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
       const codeResult = result?.codeResult;
       if (!codeResult?.code) return;
       
-      const code = codeResult.code;
+      const code = codeResult.code.trim();
+      
+      // Validation 1: Check barcode format (EAN/UPC)
+      if (!isValidBarcodeFormat(code)) {
+        console.log('❌ Rejected: Invalid barcode format', code);
+        return;
+      }
+      
+      // Validation 2: Check bounding box is within ROI (center scan area)
+      const box = result?.box;
+      if (box && scannerRef.current) {
+        const video = scannerRef.current.querySelector('video');
+        if (video) {
+          const videoWidth = video.videoWidth;
+          const videoHeight = video.videoHeight;
+          
+          // Calculate ROI bounds (center 80% width, 50% height)
+          const roiLeft = videoWidth * 0.1;
+          const roiRight = videoWidth * 0.9;
+          const roiTop = videoHeight * 0.25;
+          const roiBottom = videoHeight * 0.75;
+          
+          // Check if barcode center is within ROI
+          const centerX = (box[0][0] + box[1][0] + box[2][0] + box[3][0]) / 4;
+          const centerY = (box[0][1] + box[1][1] + box[2][1] + box[3][1]) / 4;
+          
+          if (centerX < roiLeft || centerX > roiRight || centerY < roiTop || centerY > roiBottom) {
+            console.log('❌ Rejected: Barcode outside scan frame');
+            return;
+          }
+        }
+      }
+      
+      // Validation 3: Confidence check
       const confidence = codeResult.decodedCodes?.reduce((acc: number, dc: any) => {
         return dc.error !== undefined ? acc + (1 - dc.error) : acc;
       }, 0) / (codeResult.decodedCodes?.length || 1) || 0;
       
-      // Validation 1: Check minimum barcode length
-      if (code.length < SCAN_CONFIG.minBarcodeLength) {
-        console.log('Rejected: Barcode too short', code);
+      if (confidence < SCAN_CONFIG.minConfidence) {
+        console.log('❌ Rejected: Low confidence', confidence.toFixed(2));
         return;
       }
       
-      // Validation 2: Basic sanity check - numeric or alphanumeric only
-      if (!/^[0-9A-Z\-]+$/i.test(code)) {
-        console.log('Rejected: Invalid characters', code);
-        return;
-      }
-      
-      // Validation 3: Frame consistency check (simplified for speed)
+      // Validation 4: Frame consistency check (CRITICAL for preventing false positives)
       if (code === lastCodeRef.current) {
         stableCountRef.current++;
         setScanStatus('confirming');
       } else {
+        // New code detected, reset counter
         lastCodeRef.current = code;
         stableCountRef.current = 1;
         setScanStatus('scanning');
       }
       
-      console.log(`Barcode detected: ${code}, stable count: ${stableCountRef.current}/${SCAN_CONFIG.requiredStableFrames}`);
+      console.log(`✅ Barcode: ${code}, Count: ${stableCountRef.current}/${SCAN_CONFIG.requiredStableFrames}, Confidence: ${confidence.toFixed(2)}`);
       
       // Only accept after required stable frames
       if (stableCountRef.current >= SCAN_CONFIG.requiredStableFrames) {
@@ -201,39 +250,52 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
         {/* Overlay */}
         <div className="absolute inset-0 pointer-events-none">
           {/* Dark overlay with cutout */}
-          <div className="absolute inset-0 bg-black/60" />
+          <div className="absolute inset-0 bg-black/70" />
           <div 
             className={cn(
-              "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-40 bg-transparent border-2 rounded-xl shadow-lg transition-all duration-300",
-              scanStatus === 'detected' ? 'border-green-500 scale-105' : 
-              scanStatus === 'confirming' ? 'border-yellow-500' : 'border-primary'
+              "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-40 bg-transparent border-4 rounded-2xl shadow-2xl transition-all duration-300",
+              scanStatus === 'detected' ? 'border-green-500 scale-105 shadow-green-500/50' : 
+              scanStatus === 'confirming' ? 'border-yellow-500 shadow-yellow-500/30' : 'border-primary shadow-primary/30'
             )} 
-            style={{ boxShadow: '0 0 0 9999px rgba(0,0,0,0.6)' }}
+            style={{ boxShadow: '0 0 0 9999px rgba(0,0,0,0.7), 0 0 40px currentColor' }}
           >
+            {/* Scan frame label */}
+            <div className={cn(
+              "absolute -top-8 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors",
+              scanStatus === 'detected' ? 'bg-green-500/20 text-green-400' :
+              scanStatus === 'confirming' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-primary/20 text-primary'
+            )}>
+              📦 Place barcode in frame
+            </div>
+            
             {/* Scanning line animation */}
             {scanStatus === 'scanning' && (
-              <div className="absolute top-0 left-0 right-0 h-full overflow-hidden">
-                <div className="absolute w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent animate-scan-line" />
+              <div className="absolute top-0 left-0 right-0 h-full overflow-hidden rounded-2xl">
+                <div className="absolute w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent animate-scan-line drop-shadow-lg" />
               </div>
             )}
             
             {/* Success indicator */}
             {scanStatus === 'detected' && (
-              <div className="absolute inset-0 flex items-center justify-center bg-green-500/20 rounded-xl">
-                <CheckCircle className="w-16 h-16 text-green-500 animate-pulse" />
+              <div className="absolute inset-0 flex items-center justify-center bg-green-500/20 rounded-2xl backdrop-blur-sm">
+                <div className="text-center">
+                  <CheckCircle className="w-16 h-16 text-green-500 animate-pulse mx-auto mb-2" />
+                  <p className="text-green-400 font-semibold text-sm">Scanned!</p>
+                </div>
               </div>
             )}
             
             {/* Confirming indicator */}
             {scanStatus === 'confirming' && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="flex gap-1">
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                <p className="text-yellow-400 font-semibold text-sm">Hold steady...</p>
+                <div className="flex gap-1.5">
                   {[...Array(SCAN_CONFIG.requiredStableFrames)].map((_, i) => (
                     <div 
                       key={i}
                       className={cn(
                         "w-3 h-3 rounded-full transition-all duration-200",
-                        i < stableCountRef.current ? 'bg-yellow-500' : 'bg-white/30'
+                        i < stableCountRef.current ? 'bg-yellow-500 scale-125' : 'bg-white/30'
                       )}
                     />
                   ))}
@@ -241,14 +303,14 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
               </div>
             )}
             
-            {/* Corner markers */}
-            <div className={cn("absolute -top-1 -left-1 w-6 h-6 border-l-4 border-t-4 rounded-tl-lg transition-colors", 
+            {/* Corner markers - more prominent */}
+            <div className={cn("absolute -top-2 -left-2 w-8 h-8 border-l-4 border-t-4 rounded-tl-xl transition-colors", 
               scanStatus === 'detected' ? 'border-green-500' : scanStatus === 'confirming' ? 'border-yellow-500' : 'border-primary')} />
-            <div className={cn("absolute -top-1 -right-1 w-6 h-6 border-r-4 border-t-4 rounded-tr-lg transition-colors",
+            <div className={cn("absolute -top-2 -right-2 w-8 h-8 border-r-4 border-t-4 rounded-tr-xl transition-colors",
               scanStatus === 'detected' ? 'border-green-500' : scanStatus === 'confirming' ? 'border-yellow-500' : 'border-primary')} />
-            <div className={cn("absolute -bottom-1 -left-1 w-6 h-6 border-l-4 border-b-4 rounded-bl-lg transition-colors",
+            <div className={cn("absolute -bottom-2 -left-2 w-8 h-8 border-l-4 border-b-4 rounded-bl-xl transition-colors",
               scanStatus === 'detected' ? 'border-green-500' : scanStatus === 'confirming' ? 'border-yellow-500' : 'border-primary')} />
-            <div className={cn("absolute -bottom-1 -right-1 w-6 h-6 border-r-4 border-b-4 rounded-br-lg transition-colors",
+            <div className={cn("absolute -bottom-2 -right-2 w-8 h-8 border-r-4 border-b-4 rounded-br-xl transition-colors",
               scanStatus === 'detected' ? 'border-green-500' : scanStatus === 'confirming' ? 'border-yellow-500' : 'border-primary')} />
           </div>
         </div>
@@ -299,21 +361,27 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
         <div className="absolute bottom-24 left-0 right-0 text-center text-white px-4">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Zap className="w-5 h-5 text-warning" />
-            <span className="font-semibold">
-              {scanStatus === 'detected' ? 'Barcode scanned!' : 
-               scanStatus === 'confirming' ? 'Hold steady...' : 'Point at barcode'}
+            <span className="font-semibold text-base">
+              {scanStatus === 'detected' ? '✓ Barcode scanned!' : 
+               scanStatus === 'confirming' ? '⏳ Confirming...' : '📷 Point at barcode'}
             </span>
           </div>
-          <p className="text-sm text-white/80 mb-3">
+          <p className="text-sm text-white/90 mb-3 font-medium">
             {scanStatus === 'detected' ? detectedCode : 
-             scanStatus === 'confirming' ? 'Keep the barcode in frame' : 
-             'Center the complete barcode in the frame'}
+             scanStatus === 'confirming' ? 'Keep barcode centered in frame' : 
+             'Position barcode inside the highlighted frame'}
           </p>
           {scanStatus === 'scanning' && (
-            <div className="bg-black/40 backdrop-blur-sm rounded-lg p-2 inline-block">
-              <p className="text-xs text-white/70">
-                💡 Tips: Use flashlight in low light • Hold phone steady • Clean camera lens
+            <div className="bg-black/50 backdrop-blur-sm rounded-lg p-3 inline-block border border-white/20">
+              <p className="text-xs text-white/80 font-medium mb-1">
+                💡 <span className="text-yellow-400">Tips for better scanning:</span>
               </p>
+              <ul className="text-xs text-white/70 space-y-0.5 text-left">
+                <li>• Keep barcode flat and fully visible</li>
+                <li>• Avoid shadows and glare</li>
+                <li>• Hold phone steady for 2-3 seconds</li>
+                <li>• Use flashlight in low light 🔦</li>
+              </ul>
             </div>
           )}
         </div>
