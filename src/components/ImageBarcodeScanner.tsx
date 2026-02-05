@@ -62,7 +62,16 @@ export function ImageBarcodeScanner({ onDetected }: ImageBarcodeScannerProps) {
           src: imageSrc,
           numOfWorkers: 0,
           decoder: {
-            readers: ['ean_reader', 'ean_8_reader', 'code_128_reader', 'upc_reader', 'upc_e_reader', 'code_39_reader'],
+            readers: [
+              'ean_reader',
+              'ean_8_reader', 
+              'code_128_reader',
+              'code_39_reader',
+              'upc_reader',
+              'upc_e_reader',
+              'codabar_reader',
+              'i2of5_reader',  // Interleaved 2 of 5
+            ],
           },
           locate: true,
           locator: {

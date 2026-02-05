@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Quagga from '@ericblade/quagga2';
-import { Camera, X, Zap, CheckCircle } from 'lucide-react';
+import { Camera, X, Zap, CheckCircle, Flashlight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -9,12 +9,12 @@ interface BarcodeScannerProps {
   onClose: () => void;
 }
 
-// Configuration for stable scanning - balanced for accuracy + speed
+// Configuration for stable scanning - optimized for faster detection
 const SCAN_CONFIG = {
-  requiredStableFrames: 2,      // Need 2 consecutive same detections (reduced from 4)
-  minConfidence: 0.5,           // Minimum confidence threshold (reduced from 0.85)
+  requiredStableFrames: 1,      // Single detection is enough (zyada tez detection)
+  minConfidence: 0.3,           // Lower threshold for better detection (especially in low light)
   scanCooldown: 500,            // Cooldown after successful scan (ms)
-  minBarcodeLength: 6,          // Minimum barcode length to accept (reduced from 8)
+  minBarcodeLength: 5,          // Accept smaller barcodes too
 };
 
 export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
@@ -23,6 +23,8 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [scanStatus, setScanStatus] = useState<'scanning' | 'detected' | 'confirming'>('scanning');
   const [detectedCode, setDetectedCode] = useState<string | null>(null);
+  const [torchEnabled, setTorchEnabled] = useState(false);
+  const videoTrackRef = useRef<MediaStreamTrack | null>(null);
   
   // Refs for stable detection tracking
   const lastCodeRef = useRef<string | null>(null);
@@ -36,6 +38,11 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
     setScanStatus('detected');
     setDetectedCode(code);
     
+    // Haptic feedback (vibration)
+    if ('vibrate' in navigator) {
+      navigator.vibrate([100, 50, 100]); // Pattern: vibrate-pause-vibrate
+    }
+    
     // Stop Quagga immediately
     Quagga.stop();
     
@@ -44,6 +51,28 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
       onDetected(code);
     }, 300);
   }, [onDetected]);
+
+  // Toggle flashlight/torch
+  const toggleTorch = useCallback(async () => {
+    if (!videoTrackRef.current) return;
+    
+    const track = videoTrackRef.current;
+    const capabilities = track.getCapabilities() as any;
+    
+    if (!capabilities.torch) {
+      console.log('Torch not supported on this device');
+      return;
+    }
+    
+    try {
+      await track.applyConstraints({
+        advanced: [{ torch: !torchEnabled } as any]
+      });
+      setTorchEnabled(!torchEnabled);
+    } catch (err) {
+      console.error('Failed to toggle torch:', err);
+    }
+  }, [torchEnabled]);
 
   const handleDetected = useCallback(
     (result: any) => {
@@ -64,16 +93,13 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
         return;
       }
       
-      // Validation 2: Check confidence level (skip this check - Quagga confidence is unreliable)
-      // if (confidence < SCAN_CONFIG.minConfidence) {
-      //   console.log('Rejected: Low confidence', confidence);
-      //   return;
-      // }
+      // Validation 2: Basic sanity check - numeric or alphanumeric only
+      if (!/^[0-9A-Z\-]+$/i.test(code)) {
+        console.log('Rejected: Invalid characters', code);
+        return;
+      }
       
-      // Validation 3: Skip bounding box check - was too strict
-      // Just do frame consistency check
-      
-      // Validation 4: Frame consistency check (most important!)
+      // Validation 3: Frame consistency check (simplified for speed)
       if (code === lastCodeRef.current) {
         stableCountRef.current++;
         setScanStatus('confirming');
@@ -106,21 +132,34 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
           target: scannerRef.current,
           constraints: {
             facingMode: 'environment',
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
+            width: { min: 640, ideal: 1280, max: 1920 },
+            height: { min: 480, ideal: 720, max: 1080 },
           },
-          // Removed ROI area restriction - scan full frame for better detection
+          area: { // ROI - focus on center for better accuracy
+            top: '25%',
+            right: '10%',
+            left: '10%',
+            bottom: '25%',
+          },
         },
         decoder: {
-          readers: ['ean_reader', 'ean_8_reader', 'code_128_reader', 'upc_reader', 'upc_e_reader'],
+          readers: [
+            'ean_reader',        // EAN-13 (sabse common)
+            'ean_8_reader',      // EAN-8
+            'code_128_reader',   // Code 128
+            'code_39_reader',    // Code 39 (bahut common missing tha)
+            'upc_reader',        // UPC-A
+            'upc_e_reader',      // UPC-E
+            'codabar_reader',    // Codabar
+          ],
           multiple: false, // Only detect one barcode at a time
         },
         locate: true,
         locator: {
-          patchSize: 'medium',
-          halfSample: true, // Faster processing
+          patchSize: 'large',      // Larger patch size for better detection
+          halfSample: false,       // Full sampling for accuracy
         },
-        frequency: 15, // Scan 15 times per second for faster detection
+        frequency: 30, // 30 FPS - double speed for instant detection
       },
       (err) => {
         if (err) {
@@ -130,6 +169,16 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
         }
         Quagga.start();
         setIsInitialized(true);
+        
+        // Get video track for torch control
+        const video = scannerRef.current?.querySelector('video');
+        if (video && video.srcObject) {
+          const stream = video.srcObject as MediaStream;
+          const tracks = stream.getVideoTracks();
+          if (tracks.length > 0) {
+            videoTrackRef.current = tracks[0];
+          }
+        }
       }
     );
 
@@ -139,6 +188,7 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
       Quagga.offDetected(handleDetected);
       Quagga.stop();
       isLockedRef.current = false;
+      videoTrackRef.current = null;
     };
   }, [handleDetected]);
 
@@ -232,11 +282,21 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
               </>
             )}
           </div>
-          <div className="w-10" />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTorch}
+            className={cn(
+              "text-white hover:bg-white/20",
+              torchEnabled && "bg-yellow-500/30"
+            )}
+          >
+            <Flashlight className={cn("w-6 h-6", torchEnabled && "fill-yellow-400")} />
+          </Button>
         </div>
 
         {/* Instructions */}
-        <div className="absolute bottom-24 left-0 right-0 text-center text-white">
+        <div className="absolute bottom-24 left-0 right-0 text-center text-white px-4">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Zap className="w-5 h-5 text-warning" />
             <span className="font-semibold">
@@ -244,11 +304,18 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
                scanStatus === 'confirming' ? 'Hold steady...' : 'Point at barcode'}
             </span>
           </div>
-          <p className="text-sm text-white/80">
+          <p className="text-sm text-white/80 mb-3">
             {scanStatus === 'detected' ? detectedCode : 
              scanStatus === 'confirming' ? 'Keep the barcode in frame' : 
              'Center the complete barcode in the frame'}
           </p>
+          {scanStatus === 'scanning' && (
+            <div className="bg-black/40 backdrop-blur-sm rounded-lg p-2 inline-block">
+              <p className="text-xs text-white/70">
+                💡 Tips: Use flashlight in low light • Hold phone steady • Clean camera lens
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Error display */}
