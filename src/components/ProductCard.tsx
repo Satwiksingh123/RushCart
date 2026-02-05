@@ -40,6 +40,9 @@ export function ProductCard({ product, onAddToCart, isInCart, quantity }: Produc
           {product.weight && (
             <p className="text-sm text-muted-foreground mt-1">{product.weight}</p>
           )}
+          {product.description && (
+            <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{product.description}</p>
+          )}
         </div>
         <div className="flex items-center justify-between">
           <div>

@@ -34,6 +34,9 @@ export function CartItemCard({ item, onUpdateQuantity, onRemove }: CartItemCardP
         {product.weight && (
           <p className="text-xs text-muted-foreground">{product.weight}</p>
         )}
+        {product.description && (
+          <p className="text-xs text-muted-foreground/80 line-clamp-2 mt-0.5">{product.description}</p>
+        )}
         <div className="flex items-center gap-2 mt-1">
           <p className="text-primary font-bold text-sm">₹{product.price}</p>
           <ReportProductDialog productId={product.id} productName={product.name} />

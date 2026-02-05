@@ -10,6 +10,7 @@ export interface Product {
   weight: string | null;
   price: number;
   image_url: string | null;
+  description?: string | null;
 }
 
 export interface CartItem {
@@ -59,7 +60,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
             name,
             weight,
             price,
-            image_url
+            image_url,
+            description
           )
         `)
         .eq('user_id', user.id);

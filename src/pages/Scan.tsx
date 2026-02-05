@@ -42,6 +42,7 @@ export default function Scan() {
             weight: data.weight,
             price: Number(data.price),
             image_url: data.image_url,
+            description: data.description,
           };
           setLastScannedProduct(product);
           await addToCart(product);
