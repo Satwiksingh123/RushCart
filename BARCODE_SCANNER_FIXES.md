@@ -1,45 +1,45 @@
 # 🎯 Barcode Scanner Fixes & Improvements
 
-## ❌ पहले की समस्याएं (Problems Before):
+## ❌ Problems Before:
 
-### 1. **बहुत Strict Detection Settings**
-   - `requiredStableFrames: 2` - दो बार same barcode होना जरूरी था
-   - बहुत low success rate
+### 1. **Too Strict Detection Settings**
+   - `requiredStableFrames: 2` - Required same barcode twice
+   - Very low success rate
    - Slow scanning (15 FPS only)
 
 ### 2. **Camera Configuration Issues**
-   - Fixed resolution की वजह से कुछ devices पर fail होता था
+   - Fixed resolution failed on some devices
    - No fallback options
 
 ### 3. **Limited Barcode Support**
-   - केवल 5 types support थे
-   - Code_39 missing था (very common)
-   - Codabar missing था
+   - Only 5 types supported
+   - Code_39 missing (very common)
+   - Codabar missing
 
 ### 4. **No User Feedback**
-   - Low light में कोई help नहीं
+   - No help in low light
    - No vibration feedback
    - Limited visual indicators
 
 ### 5. **ROI Removed**
-   - पूरे frame को scan करने से false positives
+   - Full frame scanning caused false positives
 
 ---
 
-## ✅ अब के सुधार (Fixes Applied):
+## ✅ Improvements Applied:
 
 ### 1. **Instant Detection** ⚡
    ```typescript
    requiredStableFrames: 1  // Single detection = instant scan!
-   minBarcodeLength: 5      // Smaller barcodes भी accept
-   frequency: 30           // Double speed (30 FPS)
+   minBarcodeLength: 5      // Accept smaller barcodes too
+   frequency: 30            // Double speed (30 FPS)
    ```
 
 ### 2. **Better Camera Support** 📱
    ```typescript
    width: { min: 640, ideal: 1280, max: 1920 }
    height: { min: 480, ideal: 720, max: 1080 }
-   // Multiple resolutions support - सभी devices पर काम करेगा
+   // Multiple resolutions support - works on all devices
    ```
 
 ### 3. **7+ Barcode Types Support** 🏷️
@@ -53,12 +53,12 @@
    - ✅ Interleaved 2 of 5 (Image scanner only)
 
 ### 4. **Flashlight/Torch Support** 🔦
-   - Low light में flashlight on/off button
+   - Flashlight on/off button for low light
    - Auto-detect torch capability
-   - Better scanning in dark
+   - Better scanning in dark conditions
 
 ### 5. **Haptic Feedback** 📳
-   - Vibration जब barcode detect हो
+   - Vibration when barcode detected
    - Pattern: vibrate-pause-vibrate
    - Better user experience
 
@@ -101,11 +101,11 @@
 
 ## 📱 Testing Tips:
 
-1. **अच्छी Lighting में Test करें** पहले
-2. **Barcode को center में रखें** scanning box में
-3. **Phone को steady रखें** (हिलाएं नहीं)
-4. **Low light में flashlight use करें**
-5. **अगर camera से fail हो तो image upload try करें**
+1. Test in good lighting first
+2. Keep barcode centered in scanning box
+3. Hold phone steady (don't move)
+4. Use flashlight in low light conditions
+5. Try image upload if camera scanning fails
 
 ---
 
@@ -135,7 +135,7 @@
 
 ## 🎯 Result:
 
-**अब barcode scanning बहुत तेज़ और reliable होगी!** 
+**Barcode scanning is now fast and reliable!** 
 
 - ✅ Instant detection (1 frame)
 - ✅ Works in low light (flashlight)
@@ -147,10 +147,10 @@
 
 ## 📝 Next Steps:
 
-1. App को rebuild करें: `npm run build` या `npm run dev`
-2. Test करें different lighting conditions में
-3. Different barcode types test करें
-4. Feedback दें कैसा काम कर रहा है
+1. Rebuild app: `npm run build` or `npm run dev`
+2. Test in different lighting conditions
+3. Test different barcode types
+4. Provide feedback on performance
 
 ---
 

@@ -15,6 +15,7 @@ import Bill from "./pages/Bill";
 import Orders from "./pages/Orders";
 import Profile from "./pages/Profile";
 import Points from "./pages/Points";
+import Report from "./pages/Report";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -96,6 +97,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Points />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/report"
+        element={
+          <ProtectedRoute>
+            <Report />
           </ProtectedRoute>
         }
       />
