@@ -43,8 +43,9 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
   const scannerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [scanStatus, setScanStatus] = useState<'scanning' | 'detected' | 'confirming'>('scanning');
+  const [scanStatus, setScanStatus] = useState<'scanning' | 'ready' | 'detected'>('scanning');
   const [detectedCode, setDetectedCode] = useState<string | null>(null);
+  const [readyToScanCode, setReadyToScanCode] = useState<string | null>(null); // Barcode ready for user confirmation
   const [torchEnabled, setTorchEnabled] = useState(false);
   const videoTrackRef = useRef<MediaStreamTrack | null>(null);
   
@@ -59,6 +60,7 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
     isLockedRef.current = true;
     setScanStatus('detected');
     setDetectedCode(code);
+    setReadyToScanCode(null);
     
     // Haptic feedback (vibration)
     if ('vibrate' in navigator) {
@@ -73,6 +75,13 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
       onDetected(code);
     }, 300);
   }, [onDetected]);
+
+  // Manual scan confirmation - user clicks "Scan It" button
+  const handleManualScan = useCallback(() => {
+    if (readyToScanCode) {
+      handleFinalScan(readyToScanCode);
+    }
+  }, [readyToScanCode, handleFinalScan]);
 
   // Toggle flashlight/torch
   const toggleTorch = useCallback(async () => {
@@ -150,25 +159,32 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
       // Validation 4: Frame consistency check (CRITICAL for preventing false positives)
       if (code === lastCodeRef.current) {
         stableCountRef.current++;
-        setScanStatus('confirming');
       } else {
         // New code detected, reset counter
         lastCodeRef.current = code;
         stableCountRef.current = 1;
-        setScanStatus('scanning');
+        // Clear ready state when new barcode appears
+        if (readyToScanCode !== code) {
+          setReadyToScanCode(null);
+          setScanStatus('scanning');
+        }
       }
       
       console.log(`✅ Barcode: ${code}, Count: ${stableCountRef.current}/${SCAN_CONFIG.requiredStableFrames}, Confidence: ${confidence.toFixed(2)}`);
       
-      // Only accept after required stable frames
+      // After required stable frames, set as READY (don't auto-scan)
       if (stableCountRef.current >= SCAN_CONFIG.requiredStableFrames) {
-        handleFinalScan(code);
-        // Reset for next scan
-        stableCountRef.current = 0;
-        lastCodeRef.current = null;
+        if (readyToScanCode !== code) {
+          setReadyToScanCode(code);
+          setScanStatus('ready');
+          // Gentle vibration to indicate barcode is ready
+          if ('vibrate' in navigator) {
+            navigator.vibrate(50);
+          }
+        }
       }
     },
-    [handleFinalScan]
+    [readyToScanCode]
   );
 
   useEffect(() => {
@@ -255,7 +271,7 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
             className={cn(
               "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-40 bg-transparent border-4 rounded-2xl shadow-2xl transition-all duration-300",
               scanStatus === 'detected' ? 'border-green-500 scale-105 shadow-green-500/50' : 
-              scanStatus === 'confirming' ? 'border-yellow-500 shadow-yellow-500/30' : 'border-primary shadow-primary/30'
+              scanStatus === 'ready' ? 'border-yellow-500 shadow-yellow-500/50 animate-pulse' : 'border-primary shadow-primary/30'
             )} 
             style={{ boxShadow: '0 0 0 9999px rgba(0,0,0,0.7), 0 0 40px currentColor' }}
           >
@@ -263,9 +279,9 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
             <div className={cn(
               "absolute -top-8 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors",
               scanStatus === 'detected' ? 'bg-green-500/20 text-green-400' :
-              scanStatus === 'confirming' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-primary/20 text-primary'
+              scanStatus === 'ready' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-primary/20 text-primary'
             )}>
-              📦 Place barcode in frame
+              {scanStatus === 'ready' ? '✓ Barcode detected!' : '📦 Place barcode in frame'}
             </div>
             
             {/* Scanning line animation */}
@@ -285,33 +301,30 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
               </div>
             )}
             
-            {/* Confirming indicator */}
-            {scanStatus === 'confirming' && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                <p className="text-yellow-400 font-semibold text-sm">Hold steady...</p>
-                <div className="flex gap-1.5">
-                  {[...Array(SCAN_CONFIG.requiredStableFrames)].map((_, i) => (
-                    <div 
-                      key={i}
-                      className={cn(
-                        "w-3 h-3 rounded-full transition-all duration-200",
-                        i < stableCountRef.current ? 'bg-yellow-500 scale-125' : 'bg-white/30'
-                      )}
-                    />
-                  ))}
+            {/* Ready indicator - barcode detected, waiting for confirmation */}
+            {scanStatus === 'ready' && readyToScanCode && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-yellow-500/10 rounded-2xl backdrop-blur-sm">
+                <div className="text-center">
+                  <CheckCircle className="w-12 h-12 text-yellow-500 mx-auto mb-2 animate-bounce" />
+                  <p className="text-yellow-400 font-semibold text-xs px-4">
+                    {readyToScanCode}
+                  </p>
+                  <p className="text-yellow-300 text-xs mt-1">
+                    Click button below ↓
+                  </p>
                 </div>
               </div>
             )}
             
             {/* Corner markers - more prominent */}
             <div className={cn("absolute -top-2 -left-2 w-8 h-8 border-l-4 border-t-4 rounded-tl-xl transition-colors", 
-              scanStatus === 'detected' ? 'border-green-500' : scanStatus === 'confirming' ? 'border-yellow-500' : 'border-primary')} />
+              scanStatus === 'detected' ? 'border-green-500' : scanStatus === 'ready' ? 'border-yellow-500' : 'border-primary')} />
             <div className={cn("absolute -top-2 -right-2 w-8 h-8 border-r-4 border-t-4 rounded-tr-xl transition-colors",
-              scanStatus === 'detected' ? 'border-green-500' : scanStatus === 'confirming' ? 'border-yellow-500' : 'border-primary')} />
+              scanStatus === 'detected' ? 'border-green-500' : scanStatus === 'ready' ? 'border-yellow-500' : 'border-primary')} />
             <div className={cn("absolute -bottom-2 -left-2 w-8 h-8 border-l-4 border-b-4 rounded-bl-xl transition-colors",
-              scanStatus === 'detected' ? 'border-green-500' : scanStatus === 'confirming' ? 'border-yellow-500' : 'border-primary')} />
+              scanStatus === 'detected' ? 'border-green-500' : scanStatus === 'ready' ? 'border-yellow-500' : 'border-primary')} />
             <div className={cn("absolute -bottom-2 -right-2 w-8 h-8 border-r-4 border-b-4 rounded-br-xl transition-colors",
-              scanStatus === 'detected' ? 'border-green-500' : scanStatus === 'confirming' ? 'border-yellow-500' : 'border-primary')} />
+              scanStatus === 'detected' ? 'border-green-500' : scanStatus === 'ready' ? 'border-yellow-500' : 'border-primary')} />
           </div>
         </div>
 
@@ -328,19 +341,22 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
           <div className={cn(
             "flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors",
             scanStatus === 'detected' ? 'bg-green-500/20 text-green-400' :
-            scanStatus === 'confirming' ? 'bg-yellow-500/20 text-yellow-400' : 'text-white'
+            scanStatus === 'ready' ? 'bg-yellow-500/20 text-yellow-400 animate-pulse' : 'text-white'
           )}>
             {scanStatus === 'detected' ? (
               <>
                 <CheckCircle className="w-5 h-5" />
-                <span className="font-medium">Detected!</span>
+                <span className="font-medium">Scanned!</span>
+              </>
+            ) : scanStatus === 'ready' ? (
+              <>
+                <CheckCircle className="w-5 h-5" />
+                <span className="font-medium">Ready to Scan!</span>
               </>
             ) : (
               <>
                 <Camera className="w-5 h-5" />
-                <span className="font-medium">
-                  {scanStatus === 'confirming' ? 'Confirming...' : 'Scanning...'}
-                </span>
+                <span className="font-medium">Scanning...</span>
               </>
             )}
           </div>
@@ -357,18 +373,32 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
           </Button>
         </div>
 
+        {/* Scan It Button - appears when barcode is detected */}
+        {scanStatus === 'ready' && readyToScanCode && (
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 pointer-events-auto z-50">
+            <Button
+              onClick={handleManualScan}
+              size="lg"
+              className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-bold text-lg px-8 py-6 rounded-2xl shadow-2xl animate-bounce hover:animate-none transition-all hover:scale-110"
+            >
+              <CheckCircle className="w-6 h-6 mr-2" />
+              Scan It!
+            </Button>
+          </div>
+        )}
+
         {/* Instructions */}
         <div className="absolute bottom-24 left-0 right-0 text-center text-white px-4">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Zap className="w-5 h-5 text-warning" />
             <span className="font-semibold text-base">
               {scanStatus === 'detected' ? '✓ Barcode scanned!' : 
-               scanStatus === 'confirming' ? '⏳ Confirming...' : '📷 Point at barcode'}
+               scanStatus === 'ready' ? '👆 Click "Scan It" button!' : '📷 Point at barcode'}
             </span>
           </div>
           <p className="text-sm text-white/90 mb-3 font-medium">
             {scanStatus === 'detected' ? detectedCode : 
-             scanStatus === 'confirming' ? 'Keep barcode centered in frame' : 
+             scanStatus === 'ready' ? 'Barcode detected! Tap button to scan.' : 
              'Position barcode inside the highlighted frame'}
           </p>
           {scanStatus === 'scanning' && (
