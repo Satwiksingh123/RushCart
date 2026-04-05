@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ShoppingBag, Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin } from 'lucide-react';
+import { ShoppingBag, Mail, MapPin, Facebook, Twitter, Instagram, Linkedin } from 'lucide-react';
 
 const footerLinks = {
   product: [
@@ -50,13 +50,9 @@ export default function Footer() {
               Skip the queues, embrace the future.
             </p>
             <div className="space-y-3">
-              <a href="mailto:satwiksingh34473@gmail.com" className="flex items-center gap-3 text-muted-foreground hover:text-foreground transition-colors">
+              <a href="mailto:niharikash34473@gmail.com" className="flex items-center gap-3 text-muted-foreground hover:text-foreground transition-colors">
                 <Mail className="w-5 h-5" />
-                satwiksingh34473@gmail.com
-              </a>
-              <a href="tel:+919027052701" className="flex items-center gap-3 text-muted-foreground hover:text-foreground transition-colors">
-                <Phone className="w-5 h-5" />
-                +91 9027052701
+                niharikash34473@gmail.com
               </a>
               <div className="flex items-center gap-3 text-muted-foreground">
                 <MapPin className="w-5 h-5" />

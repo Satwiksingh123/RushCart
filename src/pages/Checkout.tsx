@@ -35,6 +35,10 @@ export default function Checkout() {
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
     try {
+      console.log('🛒 Creating order for user:', user.id);
+      console.log('💰 Total amount:', total);
+      console.log('📦 Items:', items);
+
       // Create order
       const qrCodeData = {
         orderId: '',
@@ -43,6 +47,8 @@ export default function Checkout() {
         timestamp: new Date().toISOString(),
         used: false,
       };
+
+      console.log('📝 Inserting order into database...');
 
       const { data: order, error: orderError } = await supabase
         .from('orders')
@@ -55,7 +61,13 @@ export default function Checkout() {
         .select()
         .single();
 
-      if (orderError) throw orderError;
+      if (orderError) {
+        console.error('❌ Order creation failed:', orderError);
+        throw orderError;
+      }
+
+      console.log('✅ Order created successfully:', order);
+      console.log('🆔 Order ID:', order.id);
 
       // Update QR code data with order ID
       qrCodeData.orderId = order.id;
@@ -63,6 +75,8 @@ export default function Checkout() {
         .from('orders')
         .update({ qr_code_data: qrCodeData })
         .eq('id', order.id);
+
+      console.log('✅ QR code data updated');
 
       // Create order items
       const orderItems = items.map((item) => ({
@@ -72,21 +86,30 @@ export default function Checkout() {
         price_at_purchase: item.product.price,
       }));
 
+      console.log('📦 Inserting order items:', orderItems);
+
       const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
 
-      if (itemsError) throw itemsError;
+      if (itemsError) {
+        console.error('❌ Order items creation failed:', itemsError);
+        throw itemsError;
+      }
+
+      console.log('✅ Order items created successfully');
 
       // Clear cart
       await clearCart();
 
       setSuccess(true);
 
+      console.log('🎉 Order complete! Navigating to bill...');
+
       // Navigate to bill after a short delay
       setTimeout(() => {
         navigate(`/bill/${order.id}`);
       }, 1500);
     } catch (error) {
-      console.error('Payment error:', error);
+      console.error('❌ Payment error:', error);
       toast({
         title: 'Payment Failed',
         description: 'There was an error processing your payment. Please try again.',

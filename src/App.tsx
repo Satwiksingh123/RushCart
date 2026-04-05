@@ -16,6 +16,7 @@ import Orders from "./pages/Orders";
 import Profile from "./pages/Profile";
 import Points from "./pages/Points";
 import Report from "./pages/Report";
+import Guard from "./pages/Guard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -108,6 +109,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route path="/guard" element={<Guard />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
