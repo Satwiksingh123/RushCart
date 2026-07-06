@@ -9,10 +9,10 @@ interface BarcodeScannerProps {
   onClose: () => void;
 }
 
-// Configuration for stable scanning - prevents false positives
+// Configuration for stable scanning - balances reliability vs false positives
 const SCAN_CONFIG = {
-  requiredStableFrames: 3,      // Need 3 consecutive detections to prevent false positives
-  minConfidence: 0.5,           // Increased confidence threshold
+  requiredStableFrames: 2,      // 2 consecutive matching reads is enough to be safe
+  minConfidence: 0.25,          // Quagga's error metric is noisy; keep threshold lenient
   scanCooldown: 500,            // Cooldown after successful scan (ms)
   minBarcodeLength: 8,          // Standard barcode minimum length (EAN-8)
   maxBarcodeLength: 18,         // Maximum barcode length
@@ -120,43 +120,25 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
         console.log('❌ Rejected: Invalid barcode format', code);
         return;
       }
-      
-      // Validation 2: Check bounding box is within ROI (center scan area)
-      const box = result?.box;
-      if (box && scannerRef.current) {
-        const video = scannerRef.current.querySelector('video');
-        if (video) {
-          const videoWidth = video.videoWidth;
-          const videoHeight = video.videoHeight;
-          
-          // Calculate ROI bounds (center 80% width, 50% height)
-          const roiLeft = videoWidth * 0.1;
-          const roiRight = videoWidth * 0.9;
-          const roiTop = videoHeight * 0.25;
-          const roiBottom = videoHeight * 0.75;
-          
-          // Check if barcode center is within ROI
-          const centerX = (box[0][0] + box[1][0] + box[2][0] + box[3][0]) / 4;
-          const centerY = (box[0][1] + box[1][1] + box[2][1] + box[3][1]) / 4;
-          
-          if (centerX < roiLeft || centerX > roiRight || centerY < roiTop || centerY > roiBottom) {
-            console.log('❌ Rejected: Barcode outside scan frame');
-            return;
-          }
-        }
-      }
-      
-      // Validation 3: Confidence check
-      const confidence = codeResult.decodedCodes?.reduce((acc: number, dc: any) => {
-        return dc.error !== undefined ? acc + (1 - dc.error) : acc;
-      }, 0) / (codeResult.decodedCodes?.length || 1) || 0;
-      
+
+      // Validation 2: Confidence check.
+      // Quagga's `error` is per-decoded-symbol; only average over symbols that
+      // actually report an error (guard bars don't), otherwise the denominator
+      // is inflated and drags valid reads below the threshold.
+      const decoded = codeResult.decodedCodes || [];
+      const errorCodes = decoded.filter((dc: any) => typeof dc.error === 'number');
+      const confidence = errorCodes.length
+        ? errorCodes.reduce((acc: number, dc: any) => acc + (1 - dc.error), 0) / errorCodes.length
+        : 1;
+
       if (confidence < SCAN_CONFIG.minConfidence) {
         console.log('❌ Rejected: Low confidence', confidence.toFixed(2));
         return;
       }
-      
-      // Validation 4: Frame consistency check (CRITICAL for preventing false positives)
+
+      // Validation 3: Frame consistency check (guards against one-off misreads).
+      // The Quagga `area` config already restricts detection to the center of the
+      // frame, so no extra bounding-box math is needed here.
       if (code === lastCodeRef.current) {
         stableCountRef.current++;
       } else {
@@ -187,8 +169,18 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
     [readyToScanCode]
   );
 
+  // Keep the latest handler in a ref so Quagga can be initialized exactly once.
+  // (Previously the init effect depended on `handleDetected`, so every state
+  // change tore down and restarted the camera mid-scan.)
+  const handleDetectedRef = useRef(handleDetected);
+  useEffect(() => {
+    handleDetectedRef.current = handleDetected;
+  }, [handleDetected]);
+
   useEffect(() => {
     if (!scannerRef.current) return;
+
+    const detectHandler = (result: any) => handleDetectedRef.current(result);
 
     Quagga.init(
       {
@@ -221,10 +213,11 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
         },
         locate: true,
         locator: {
-          patchSize: 'large',      // Larger patch size for better detection
-          halfSample: false,       // Full sampling for accuracy
+          patchSize: 'medium',     // 'medium' detects typical product barcodes best
+          halfSample: true,        // Faster processing; keeps up with the video feed
         },
-        frequency: 30, // 30 FPS - double speed for instant detection
+        numOfWorkers: navigator.hardwareConcurrency ? Math.min(4, navigator.hardwareConcurrency) : 2,
+        frequency: 10, // 10 scans/sec - avoids overloading mobile CPUs (blurry frames)
       },
       (err) => {
         if (err) {
@@ -247,15 +240,17 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
       }
     );
 
-    Quagga.onDetected(handleDetected);
+    Quagga.onDetected(detectHandler);
 
     return () => {
-      Quagga.offDetected(handleDetected);
+      Quagga.offDetected(detectHandler);
       Quagga.stop();
       isLockedRef.current = false;
       videoTrackRef.current = null;
     };
-  }, [handleDetected]);
+    // Init once on mount; the live handler is read through handleDetectedRef.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="fixed inset-0 z-50 bg-black">
