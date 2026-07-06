@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Package, ShoppingBag, ArrowLeft } from 'lucide-react';
+import { Camera, Package, ShoppingBag, ArrowLeft, IndianRupee, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { BarcodeScanner } from '@/components/BarcodeScanner';
 import { ImageBarcodeScanner } from '@/components/ImageBarcodeScanner';
 import { ManualBarcodeInput } from '@/components/ManualBarcodeInput';
@@ -12,6 +13,49 @@ import { BottomNav } from '@/components/BottomNav';
 import { useCart, Product } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchFromOpenFoodFacts, ExternalProductInfo } from '@/lib/openFoodFacts';
+
+// Persist a product discovered via Open Food Facts into our own products table
+// (cart_items has an FK to products, so it must exist there before we can add
+// it to the cart). Returns the stored product, or null if it couldn't be saved.
+async function saveExternalProduct(
+  info: ExternalProductInfo,
+  price: number
+): Promise<Product | null> {
+  const mapRow = (row: any): Product => ({
+    id: row.id,
+    barcode: row.barcode,
+    name: row.name,
+    weight: row.weight,
+    price: Number(row.price),
+    image_url: row.image_url,
+    description: row.description ?? null,
+  });
+
+  const { data, error } = await supabase
+    .from('products')
+    .insert({
+      barcode: info.barcode,
+      name: info.name,
+      weight: info.weight,
+      image_url: info.image_url,
+      price, // price entered by the user (Open Food Facts has no price data)
+    })
+    .select()
+    .maybeSingle();
+
+  if (!error && data) return mapRow(data);
+
+  // Insert failed (likely a concurrent insert hit the unique barcode) —
+  // fall back to reading whatever row now exists for this barcode.
+  const { data: existing } = await supabase
+    .from('products')
+    .select('*')
+    .eq('barcode', info.barcode)
+    .maybeSingle();
+
+  return existing ? mapRow(existing) : null;
+}
 
 export default function Scan() {
   const navigate = useNavigate();
@@ -19,6 +63,11 @@ export default function Scan() {
   const [showManualInput, setShowManualInput] = useState(false);
   const [lastScannedProduct, setLastScannedProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
+  // A product found online (Open Food Facts) that needs a price before it can
+  // be added — drives the "set price" dialog.
+  const [priceProduct, setPriceProduct] = useState<ExternalProductInfo | null>(null);
+  const [priceInput, setPriceInput] = useState('');
+  const [savingPrice, setSavingPrice] = useState(false);
   const { addToCart, items } = useCart();
   const { toast } = useToast();
 
@@ -47,12 +96,25 @@ export default function Scan() {
           setLastScannedProduct(product);
           await addToCart(product);
         } else {
-          toast({
-            title: 'Product Not Found',
-            description: `No product found with barcode: ${barcode}`,
-            variant: 'destructive',
-          });
-          setLastScannedProduct(null);
+          // Not in our catalog — look the barcode up in Open Food Facts so that
+          // any packaged product can still be scanned.
+          const external = await fetchFromOpenFoodFacts(barcode);
+
+          if (external) {
+            // Found online, but Open Food Facts has no price — ask the user for
+            // it. Once saved, future scans of this barcode load the price
+            // automatically from our own DB.
+            setPriceProduct(external);
+            setPriceInput('');
+            setLastScannedProduct(null);
+          } else {
+            toast({
+              title: 'Product Not Found',
+              description: `No product found with barcode: ${barcode}`,
+              variant: 'destructive',
+            });
+            setLastScannedProduct(null);
+          }
         }
       } catch (error) {
         console.error('Error looking up product:', error);
@@ -68,6 +130,41 @@ export default function Scan() {
     },
     [addToCart, toast]
   );
+
+  // Save the price the user entered for a newly discovered product, then add it
+  // to the cart.
+  const confirmPrice = useCallback(async () => {
+    if (!priceProduct) return;
+
+    const price = parseFloat(priceInput);
+    if (isNaN(price) || price < 0) {
+      toast({
+        title: 'Invalid Price',
+        description: 'Please enter a valid price.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setSavingPrice(true);
+    try {
+      const product = await saveExternalProduct(priceProduct, price);
+      if (product) {
+        setLastScannedProduct(product);
+        await addToCart(product);
+      } else {
+        toast({
+          title: 'Could Not Save Product',
+          description: 'Failed to add. Check product write permissions in Supabase.',
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setSavingPrice(false);
+      setPriceProduct(null);
+      setPriceInput('');
+    }
+  }, [priceProduct, priceInput, addToCart, toast]);
 
   const cartItem = lastScannedProduct
     ? items.find((item) => item.product_id === lastScannedProduct.id)
@@ -225,6 +322,92 @@ export default function Scan() {
             }} 
             loading={loading} 
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Set Price Dialog - shown for products discovered online */}
+      <Dialog
+        open={!!priceProduct}
+        onOpenChange={(open) => {
+          if (!open && !savingPrice) {
+            setPriceProduct(null);
+            setPriceInput('');
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Set Product Price</DialogTitle>
+            <DialogDescription>
+              Found online — enter its price once. Next time this barcode scans,
+              the price loads automatically.
+            </DialogDescription>
+          </DialogHeader>
+
+          {priceProduct && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/40">
+                {priceProduct.image_url ? (
+                  <img
+                    src={priceProduct.image_url}
+                    alt={priceProduct.name}
+                    className="w-14 h-14 rounded-md object-contain bg-white"
+                  />
+                ) : (
+                  <div className="w-14 h-14 rounded-md bg-primary/10 flex items-center justify-center">
+                    <Package className="w-6 h-6 text-primary" />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm text-foreground line-clamp-2">
+                    {priceProduct.name}
+                  </p>
+                  {priceProduct.weight && (
+                    <p className="text-xs text-muted-foreground">{priceProduct.weight}</p>
+                  )}
+                </div>
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  confirmPrice();
+                }}
+                className="space-y-4"
+              >
+                <div className="relative">
+                  <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    placeholder="Enter price"
+                    value={priceInput}
+                    onChange={(e) => setPriceInput(e.target.value)}
+                    className="h-12 text-lg font-mono pl-10 bg-background"
+                    autoFocus
+                    disabled={savingPrice}
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full h-12 text-base font-semibold gradient-primary"
+                  disabled={savingPrice || !priceInput.trim()}
+                >
+                  {savingPrice ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    'Add to Cart'
+                  )}
+                </Button>
+              </form>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
